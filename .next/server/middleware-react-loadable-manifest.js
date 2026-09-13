@@ -1,0 +1,1 @@
+self.__REACT_LOADABLE_MANIFEST="{\"components\\\\calling\\\\CallPanel.tsx -> @twilio/voice-sdk\":{\"id\":\"components\\\\calling\\\\CallPanel.tsx -> @twilio/voice-sdk\",\"files\":[\"static/chunks/_app-pages-browser_node_modules_twilio_voice-sdk_esm_twilio_js.js\"]}}"

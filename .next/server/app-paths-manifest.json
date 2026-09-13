@@ -1,0 +1,8 @@
+{
+  "/dashboard/agents/page": "app/dashboard/agents/page.js",
+  "/agent/page": "app/agent/page.js",
+  "/dashboard/page": "app/dashboard/page.js",
+  "/agent/leads/page": "app/agent/leads/page.js",
+  "/api/settings/status/route": "app/api/settings/status/route.js",
+  "/dashboard/settings/page": "app/dashboard/settings/page.js"
+}
