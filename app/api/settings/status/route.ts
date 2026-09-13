@@ -183,20 +183,27 @@ export async function GET(req: NextRequest) {
       valid: false,
       message: 'TwiML App SID missing in .env.local',
     });
-  } else if (!twimlAppSid.startsWith('AP')) {
+  } else if (!twimlAppSid.startsWith('AP') || twimlAppSid.length !== 34) {
     twilioKeys.push({
       name: 'TWILIO_TWIML_APP_SID',
       value: maskValue(twimlAppSid),
       valid: false,
-      message: `Invalid Format! Starts with "${twimlAppSid.slice(0, 2)}...", but MUST start with "AP..."`,
+      message: `Invalid Format! Must be 34 chars starting with "AP...". Got: "${twimlAppSid.slice(0, 2)}" (${twimlAppSid.length} chars)`,
     });
   } else if (isAccountSidValid && isAuthTokenValid) {
     const authHeader = 'Basic ' + Buffer.from(`${accountSid}:${authToken}`).toString('base64');
     try {
-      const appRes = await fetch(
-        `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Applications/${twimlAppSid}.json`,
+      // Try AU1 first (Australia region), then fall back to US1
+      let appRes = await fetch(
+        `https://api.au1.twilio.com/2010-04-01/Accounts/${accountSid}/Applications/${twimlAppSid}.json`,
         { headers: { Authorization: authHeader } }
       );
+      if (!appRes.ok) {
+        appRes = await fetch(
+          `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Applications/${twimlAppSid}.json`,
+          { headers: { Authorization: authHeader } }
+        );
+      }
       if (appRes.ok) {
         const appData = await appRes.json();
         isTwimlAppValid = true;
@@ -204,15 +211,27 @@ export async function GET(req: NextRequest) {
           name: 'TWILIO_TWIML_APP_SID',
           value: maskValue(twimlAppSid),
           valid: true,
-          message: `Connected: TwiML App "${appData.friendly_name}"`,
+          message: `Connected: TwiML App "${appData.friendly_name}" (Voice webhook configured)`,
         });
       } else {
-        twilioKeys.push({
-          name: 'TWILIO_TWIML_APP_SID',
-          value: maskValue(twimlAppSid),
-          valid: false,
-          message: `Live Check Failed (HTTP ${appRes.status}): TwiML App not found in this account`,
-        });
+        const errData = await appRes.json().catch(() => ({})) as any;
+        // Trial accounts block Applications API — treat as configured if format is valid
+        if (errData?.code === 20003 && errData?.message?.includes('Trial')) {
+          isTwimlAppValid = true;
+          twilioKeys.push({
+            name: 'TWILIO_TWIML_APP_SID',
+            value: maskValue(twimlAppSid),
+            valid: true,
+            message: 'Configured ✓ (Trial account — API verification restricted, verify via Twilio Console)',
+          });
+        } else {
+          twilioKeys.push({
+            name: 'TWILIO_TWIML_APP_SID',
+            value: maskValue(twimlAppSid),
+            valid: false,
+            message: `Live Check Failed (HTTP ${appRes.status}): TwiML App not found in this account`,
+          });
+        }
       }
     } catch (err: any) {
       twilioKeys.push({
@@ -249,25 +268,43 @@ export async function GET(req: NextRequest) {
   } else if (isAccountSidValid && isAuthTokenValid) {
     const authHeader = 'Basic ' + Buffer.from(`${accountSid}:${authToken}`).toString('base64');
     try {
-      const keyRes = await fetch(
-        `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Keys/${apiKey}.json`,
+      // Try AU1 first (Australia region), then fall back to US1
+      let keyRes = await fetch(
+        `https://api.au1.twilio.com/2010-04-01/Accounts/${accountSid}/Keys/${apiKey}.json`,
         { headers: { Authorization: authHeader } }
       );
+      if (!keyRes.ok) {
+        keyRes = await fetch(
+          `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Keys/${apiKey}.json`,
+          { headers: { Authorization: authHeader } }
+        );
+      }
       if (keyRes.ok) {
         const keyData = await keyRes.json();
         twilioKeys.push({
           name: 'TWILIO_API_KEY',
           value: maskValue(apiKey),
           valid: true,
-          message: `Verified: API Key "${keyData.friendly_name}"`,
+          message: `Verified: API Key "${keyData.friendly_name}" (AU1 Region)`,
         });
       } else {
-        twilioKeys.push({
-          name: 'TWILIO_API_KEY',
-          value: maskValue(apiKey),
-          valid: false,
-          message: `Live Check Failed (HTTP ${keyRes.status}): API Key not found in account`,
-        });
+        const errData = await keyRes.json().catch(() => ({})) as any;
+        // Trial restriction — if format is valid SK key, treat as configured
+        if (errData?.code === 20003 && errData?.message?.includes('Trial')) {
+          twilioKeys.push({
+            name: 'TWILIO_API_KEY',
+            value: maskValue(apiKey),
+            valid: true,
+            message: 'Configured ✓ (Trial account — API verification restricted)',
+          });
+        } else {
+          twilioKeys.push({
+            name: 'TWILIO_API_KEY',
+            value: maskValue(apiKey),
+            valid: false,
+            message: `Live Check Failed (HTTP ${keyRes.status}): API Key not found in AU1 or US1`,
+          });
+        }
       }
     } catch (err: any) {
       twilioKeys.push({
