@@ -59,7 +59,9 @@ export default function CallPanel({
   // Start Real WebRTC Twilio Call or Fallback to Demo Mode
   // Helper to extract clear error messages from Twilio SDK / Browser errors
   const parseCallError = (err: any): string => {
-    if (!err) return 'Unknown call error occurred.';
+    if (!err) {
+      return 'Twilio call disconnected. On a Twilio Trial account, calls can ONLY be made to your Verified Caller ID phone number, and your TwiML App Voice URL must be set in Twilio Console.';
+    }
     if (typeof err === 'string') return err;
 
     const codeStr = err.code ? `[Twilio Code ${err.code}] ` : '';
@@ -74,6 +76,9 @@ export default function CallPanel({
     if (err.code === 31404) {
       return `${codeStr}TwiML App SID not found in your Twilio account. Check TWILIO_TWIML_APP_SID in .env.local.`;
     }
+    if (err.code === 21215 || err.code === 21214) {
+      return `${codeStr}Twilio Trial Account: Target phone number is NOT verified. Add and verify this number under Twilio Console -> Verified Caller IDs.`;
+    }
     if (err.name === 'NotAllowedError' || String(message).toLowerCase().includes('permission')) {
       return 'Microphone permission blocked by browser. Please click the lock icon in your browser URL bar and allow Microphone.';
     }
@@ -81,7 +86,7 @@ export default function CallPanel({
       return 'No working microphone detected. Please connect a microphone or headset to your PC.';
     }
 
-    if (message && message !== 'undefined') {
+    if (message && message !== 'undefined' && message !== 'Error') {
       return `${codeStr}${message}`;
     }
 
@@ -90,7 +95,7 @@ export default function CallPanel({
       if (jsonStr && jsonStr !== '{}') return `${codeStr}${jsonStr}`;
     } catch (e) {}
 
-    return `${codeStr}${String(err)}`;
+    return `${codeStr}Twilio call failed to connect. Check your microphone permissions, verified caller IDs, and TwiML App URL.`;
   };
 
   // Start Real WebRTC Twilio Call or Fallback to Demo Mode
