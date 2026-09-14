@@ -212,11 +212,11 @@ export default function AgentLeadsPage() {
                   </div>
                   <button
                     type="submit"
-                    title="Start VoIP voice call using your browser microphone and speaker"
-                    className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2.5 rounded-xl text-sm shadow-md transition active:scale-95"
+                    title="Initiate direct Twilio voice call to phone"
+                    className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-5 py-2.5 rounded-xl text-sm shadow-md transition active:scale-95"
                   >
                     <PhoneCall className="w-4 h-4" />
-                    WebRTC Call
+                    Call Phone Now
                   </button>
                   <button
                     type="button"

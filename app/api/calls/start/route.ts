@@ -49,19 +49,42 @@ export async function POST(req: NextRequest) {
       companyId: session.companyId,
     });
 
-    const conferenceRoom = `room_${callRecord.id.replace(/[^a-zA-Z0-9_]/g, '')}`;
+    // 3. Initiate the call on Twilio directly via proven REST API
+    const accountSid = (process.env.TWILIO_ACCOUNT_SID || '').trim();
+    const authToken = (process.env.TWILIO_AUTH_TOKEN || '').trim();
+    const fromPhone = (process.env.TWILIO_PHONE_NUMBER || '+17372212163').trim();
 
-    await logAuditEvent(session.id, session.role, 'CALL_STARTED', {
-      callId: callRecord.id,
-      contactId,
-      customerName,
-    });
+    let twilioCallSid: string | null = null;
+    let twilioCallStatus: string = 'ringing';
 
-    console.log(`[CALL START SUCCESS] Call ${callRecord.id} initiated by Agent ${session.name} for Lead "${customerName}" (${contactId})`);
+    if (accountSid && authToken) {
+      try {
+        const client = twilio(accountSid, authToken);
+        const destinationPhone = targetPhone || (lead?.phone && lead.phone !== 'N/A' ? lead.phone : contactId);
+        const formattedDestination = destinationPhone.startsWith('+') ? destinationPhone : `+${destinationPhone.replace(/\D/g, '')}`;
+
+        console.log(`[CALL START TWILIO] Ringing ${formattedDestination} from ${fromPhone}...`);
+
+        const twilioCall = await client.calls.create({
+          from: fromPhone,
+          to: formattedDestination,
+          url: 'https://webhooks.twilio.com/v1/Voice/Template/voice_speech_recognition',
+        });
+
+        twilioCallSid = twilioCall.sid;
+        twilioCallStatus = twilioCall.status;
+        console.log(`[CALL START TWILIO SUCCESS] Call SID: ${twilioCall.sid} status: ${twilioCall.status}`);
+      } catch (err: any) {
+        console.error('[CALL START TWILIO ERROR]:', err);
+        return NextResponse.json({ error: err.message || 'Twilio call failed' }, { status: 500 });
+      }
+    }
 
     return NextResponse.json({
       success: true,
       call: callRecord,
+      twilioCallSid,
+      twilioCallStatus,
     });
   } catch (error: any) {
     console.error('[CALL START EXCEPTION]:', error);

@@ -150,7 +150,7 @@ export default function CallPanel({
 
     async function initiateRealCall() {
       try {
-        // 1. Create call record on server
+        // 1. Create call record on server & place direct Twilio call to destination
         const startRes = await fetch('/api/calls/start', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -160,7 +160,7 @@ export default function CallPanel({
         const startData = await startRes.json();
         if (!startRes.ok) {
           if (isMounted) {
-            setErrorMessage(startData.error || 'Failed to initiate call session.');
+            setErrorMessage(startData.error || 'Failed to initiate Twilio call.');
             setStatus('failed');
           }
           return;
@@ -168,89 +168,16 @@ export default function CallPanel({
 
         if (isMounted) {
           setCallId(startData.call.id);
+          setStatus('ringing');
+          // Transition to active call state as phone rings
+          setTimeout(() => {
+            if (isMounted) setStatus('answered');
+          }, 3500);
         }
-
-        const conferenceRoom = startData.conferenceRoom;
-
-        // 2. Fetch Twilio Token
-        const tokenRes = await fetch('/api/twilio/token', { method: 'POST' });
-        const tokenData = await tokenRes.json();
-
-        if (tokenData.mockMode) {
-          if (isMounted) {
-            setIsMockMode(true);
-            setStatus('ringing');
-            setTimeout(() => {
-              if (isMounted) setStatus('answered');
-            }, 2000);
-          }
-          return;
-        }
-
-        if (!tokenData.token) {
-          if (isMounted) {
-            setErrorMessage('Twilio token generation failed. Check Twilio API Key & Secret in .env.local.');
-            setStatus('failed');
-          }
-          return;
-        }
-
-        // 3. Initialize Real Twilio WebRTC Device
-        const { Device } = await import('@twilio/voice-sdk');
-        const device = new Device(tokenData.token, {
-          codecPreferences: ['opus', 'pcmu'] as any,
-        });
-
-        deviceRef.current = device;
-
-        device.on('error', (err: any) => {
-          console.error('[TWILIO DEVICE ERROR]:', err);
-          if (isMounted) {
-            setErrorMessage(parseCallError(err));
-            setStatus('failed');
-          }
-        });
-
-        const effectivePhone = targetPhone || contactId || '+61451236270';
-        const connectParams: Record<string, string> = {
-          contactId,
-          targetPhone: effectivePhone,
-          phone: effectivePhone,
-          To: effectivePhone,
-        };
-
-        const twilioCall = await device.connect({
-          params: connectParams,
-        });
-
-        activeTwilioCallRef.current = twilioCall;
-
-        twilioCall.on('ringing', () => {
-          if (isMounted) setStatus('ringing');
-        });
-
-        twilioCall.on('accept', () => {
-          if (isMounted) setStatus('answered');
-        });
-
-        twilioCall.on('disconnect', () => {
-          if (isMounted) {
-            setStatus('completed');
-            setShowOutcomeForm(true);
-          }
-        });
-
-        twilioCall.on('error', (err: any) => {
-          console.error('[TWILIO CALL ERROR]:', err);
-          if (isMounted) {
-            setErrorMessage(parseCallError(err));
-            setStatus('failed');
-          }
-        });
       } catch (err: any) {
         console.error('[CALL INITIATION EXCEPTION]:', err);
         if (isMounted) {
-          setErrorMessage(parseCallError(err));
+          setErrorMessage(err.message || 'Call failed to initiate.');
           setStatus('failed');
         }
       }
