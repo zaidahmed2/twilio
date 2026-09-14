@@ -26,14 +26,17 @@ export async function POST(req: NextRequest) {
     const target = toPhone || '+61451236270';
     const formattedTarget = target.startsWith('+') ? target : `+${target.replace(/\D/g, '')}`;
 
-    console.log(`[DIRECT TWILIO CALL] Initiating carrier call from ${fromPhone} to ${formattedTarget} for Agent ${session.name}`);
+    const conferenceRoom = `room_${(contactId || 'direct').replace(/[^a-zA-Z0-9_]/g, '')}_${Date.now()}`;
+    const confTwiml = `<?xml version="1.0" encoding="UTF-8"?><Response><Dial><Conference startConferenceOnEnter="true" endConferenceOnExit="true" beep="false">${conferenceRoom}</Conference></Dial></Response>`;
+
+    console.log(`[DIRECT TWILIO CALL] Initiating carrier call from ${fromPhone} to ${formattedTarget} for Agent ${session.name} (Conference: ${conferenceRoom})`);
 
     const client = twilio(accountSid, authToken);
 
     const twilioCall = await client.calls.create({
       from: fromPhone,
       to: formattedTarget,
-      url: 'https://webhooks.twilio.com/v1/Voice/Template/voice_speech_recognition',
+      twiml: confTwiml,
     });
 
     console.log(`[DIRECT TWILIO CALL SUCCESS] Call SID: ${twilioCall.sid} | Status: ${twilioCall.status}`);
@@ -60,6 +63,7 @@ export async function POST(req: NextRequest) {
       callSid: twilioCall.sid,
       status: twilioCall.status,
       callId: record.id,
+      conferenceRoom,
     });
   } catch (error: any) {
     console.error('[DIRECT CALL ERROR]:', error);

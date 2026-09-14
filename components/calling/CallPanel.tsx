@@ -60,6 +60,16 @@ export default function CallPanel({
       } else {
         setCallId(data.callId);
         setStatus('answered');
+        if (data.conferenceRoom && deviceRef.current) {
+          try {
+            const twilioCall = await deviceRef.current.connect({
+              params: { conferenceRoom: data.conferenceRoom },
+            });
+            activeTwilioCallRef.current = twilioCall;
+          } catch (e) {
+            console.warn('[CONFERENCE BRIDGE NOTICE] Browser audio bridge notice:', e);
+          }
+        }
       }
     } catch (e: any) {
       setErrorMessage(e.message || 'Failed to place direct call');
