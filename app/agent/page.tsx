@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Navbar from '@/components/layout/Navbar';
 import Sidebar from '@/components/layout/Sidebar';
 import CallPanel from '@/components/calling/CallPanel';
-import { Phone, Users, PhoneCall, CheckCircle, Clock, ShieldCheck, Search, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Phone, Users, PhoneCall, CheckCircle, Clock, ShieldCheck, Search, Filter, ChevronLeft, ChevronRight, Loader2, PhoneForwarded, AlertCircle } from 'lucide-react';
 import { SafeLead, CallRecord } from '@/lib/data/types';
 
 export default function AgentDashboard() {
@@ -15,6 +15,8 @@ export default function AgentDashboard() {
   const [searchTerm, setSearchTerm] = useState('');
   const [manualPhone, setManualPhone] = useState('+61451236270');
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [isCloudCalling, setIsCloudCalling] = useState(false);
+  const [cloudCallStatus, setCloudCallStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const handleDirectCall = (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,6 +37,44 @@ export default function AgentDashboard() {
       tags: ['Direct Dial'],
       phone: formatted,
     });
+  };
+
+  const handleDirectCloudCall = async () => {
+    const clean = manualPhone.trim();
+    if (!clean) return;
+    const formatted = clean.startsWith('+') ? clean : `+${clean.replace(/\D/g, '')}`;
+    setIsCloudCalling(true);
+    setCloudCallStatus(null);
+    try {
+      const res = await fetch('/api/calls/direct', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          toPhone: formatted,
+          customerName: `Direct Call (${formatted})`,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        setCloudCallStatus({
+          type: 'error',
+          message: data.error || 'Direct call initiation failed.',
+        });
+      } else {
+        setCloudCallStatus({
+          type: 'success',
+          message: `Twilio call initiated (SID: ${data.callSid?.slice(0, 10)}...). Calling ${formatted} now!`,
+        });
+        fetchData();
+      }
+    } catch (err: any) {
+      setCloudCallStatus({
+        type: 'error',
+        message: err.message || 'Failed to trigger cloud call.',
+      });
+    } finally {
+      setIsCloudCalling(false);
+    }
   };
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -118,25 +158,58 @@ export default function AgentDashboard() {
                 </p>
               </div>
 
-              <form onSubmit={handleDirectCall} className="flex flex-wrap items-center gap-2.5">
-                <div className="relative">
-                  <Phone className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
-                  <input
-                    type="text"
-                    value={manualPhone}
-                    onChange={(e) => setManualPhone(e.target.value)}
-                    placeholder="+61451236270"
-                    className="pl-9 pr-4 py-2.5 bg-slate-800/90 border border-slate-700 text-white rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500 w-60 shadow-inner"
-                  />
-                </div>
-                <button
-                  type="submit"
-                  className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-5 py-2.5 rounded-xl text-sm shadow-md transition active:scale-95"
-                >
-                  <PhoneCall className="w-4 h-4" />
-                  Call Now
-                </button>
-              </form>
+              <div className="flex flex-col gap-2">
+                <form onSubmit={handleDirectCall} className="flex flex-wrap items-center gap-2.5">
+                  <div className="relative">
+                    <Phone className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                    <input
+                      type="text"
+                      value={manualPhone}
+                      onChange={(e) => setManualPhone(e.target.value)}
+                      placeholder="+61451236270"
+                      className="pl-9 pr-4 py-2.5 bg-slate-800/90 border border-slate-700 text-white rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500 w-56 shadow-inner"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    title="Start VoIP voice call using your browser microphone and speaker"
+                    className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2.5 rounded-xl text-sm shadow-md transition active:scale-95"
+                  >
+                    <PhoneCall className="w-4 h-4" />
+                    WebRTC Call
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDirectCloudCall}
+                    disabled={isCloudCalling}
+                    title="Directly trigger phone ring via Twilio Cloud PSTN without browser WebRTC"
+                    className="inline-flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-4 py-2.5 rounded-xl text-sm shadow-md transition active:scale-95 disabled:opacity-50"
+                  >
+                    {isCloudCalling ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Calling...
+                      </>
+                    ) : (
+                      <>
+                        <PhoneForwarded className="w-4 h-4" />
+                        Direct Twilio Ring
+                      </>
+                    )}
+                  </button>
+                </form>
+
+                {cloudCallStatus && (
+                  <div className={`text-xs px-3 py-1.5 rounded-lg border flex items-center gap-2 ${
+                    cloudCallStatus.type === 'success' 
+                      ? 'bg-emerald-950/80 border-emerald-500/50 text-emerald-300' 
+                      : 'bg-red-950/80 border-red-500/50 text-red-300'
+                  }`}>
+                    {cloudCallStatus.type === 'success' ? <CheckCircle className="w-3.5 h-3.5 text-emerald-400" /> : <AlertCircle className="w-3.5 h-3.5 text-red-400" />}
+                    <span>{cloudCallStatus.message}</span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 

@@ -93,7 +93,7 @@ export default function CallPanel({
   // Helper to extract clear error messages from Twilio SDK / Browser errors
   const parseCallError = (err: any): string => {
     if (!err) {
-      return 'Twilio call disconnected by network or remote carrier.';
+      return 'Twilio WebRTC audio session could not be established. Carrier or trial limitation prevented the browser connection.';
     }
     if (typeof err === 'string') return err;
 
@@ -112,6 +112,9 @@ export default function CallPanel({
     if (err.code === 21215 || err.code === 21214) {
       return `${codeStr}Twilio Trial Account: Target phone number is NOT verified. Add and verify this number under Twilio Console -> Verified Caller IDs.`;
     }
+    if (err.code === 31005 || err.code === 31000) {
+      return `${codeStr}Twilio WebRTC Connection Error. Twilio trial accounts restrict international VoIP routing to non-US numbers. Click the green button below to place a Direct Twilio PSTN call instead.`;
+    }
     if (err.name === 'NotAllowedError' || String(message).toLowerCase().includes('permission')) {
       return 'Microphone permission blocked by browser. Please click the lock icon in your browser URL bar and allow Microphone.';
     }
@@ -128,7 +131,7 @@ export default function CallPanel({
       if (jsonStr && jsonStr !== '{}') return `${codeStr}${jsonStr}`;
     } catch (e) {}
 
-    return `${codeStr}Twilio call failed to connect. Check your microphone permissions, verified caller IDs, and TwiML App URL.`;
+    return `${codeStr}Twilio WebRTC failed to connect. Try placing a Direct Twilio Cloud PSTN call below.`;
   };
 
   // Start Real WebRTC Twilio Call or Fallback to Demo Mode
@@ -196,9 +199,6 @@ export default function CallPanel({
             setStatus('failed');
           }
         });
-
-        // Register device & connect call to Twilio TwiML App
-        await device.register();
 
         const connectParams: Record<string, string> = { contactId };
         if (targetPhone) {
@@ -356,6 +356,24 @@ export default function CallPanel({
             <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-center space-y-3">
               <AlertCircle className="w-8 h-8 text-red-500 mx-auto" />
               <p className="text-sm font-medium text-red-800">{errorMessage}</p>
+              
+              <button
+                type="button"
+                onClick={handleDirectCarrierCall}
+                disabled={isDirectCalling}
+                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm py-2.5 rounded-lg shadow transition flex items-center justify-center gap-2"
+              >
+                {isDirectCalling ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" /> Calling Twilio Cloud...
+                  </>
+                ) : (
+                  <>
+                    <Phone className="w-4 h-4" /> 📞 Ring Phone via Twilio Cloud PSTN
+                  </>
+                )}
+              </button>
+
               <button
                 type="button"
                 onClick={handleSafeClose}
