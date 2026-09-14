@@ -41,9 +41,15 @@ export async function POST(req: NextRequest) {
 
     console.log(`[TWILIO VOICE] Connecting WebRTC call for contact ${contactId} to phone ${formattedPhone}`);
 
+    // Determine Caller ID (must be Twilio number or Verified Caller ID)
+    let callerId = (process.env.TWILIO_PHONE_NUMBER || '').trim();
+    if (!callerId || callerId.includes('451236270')) {
+      callerId = '+61422436270';
+    }
+
     // Dial out through Twilio Voice Infrastructure
     const dial = voiceResponse.dial({
-      callerId: twilioPhoneNumber,
+      callerId: callerId,
       record: process.env.TWILIO_RECORD_CALLS === 'true' ? 'record-from-answer' : 'do-not-record',
       action: '/api/webhooks/twilio/call-status',
     });
