@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import twilio from 'twilio';
 import { getSessionFromRequest } from '@/lib/auth/session';
 import { getLeadById } from '@/lib/data/leads';
 import { createCallRecord } from '@/lib/data/calls';
@@ -7,6 +8,7 @@ import { logAuditEvent } from '@/lib/data/audit';
 
 const startCallSchema = z.object({
   contactId: z.string().min(1, 'Contact ID is required'),
+  targetPhone: z.string().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -23,7 +25,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid contactId parameter' }, { status: 400 });
     }
 
-    const { contactId } = parsed.data;
+    const { contactId, targetPhone } = parsed.data;
 
     // 1. Verify lead existence or support direct manual dialing
     const lead = await getLeadById(contactId, session.companyId);
@@ -47,17 +49,52 @@ export async function POST(req: NextRequest) {
       companyId: session.companyId,
     });
 
+    const conferenceRoom = `room_${callRecord.id.replace(/[^a-zA-Z0-9_]/g, '')}`;
+
     await logAuditEvent(session.id, session.role, 'CALL_STARTED', {
       callId: callRecord.id,
       contactId,
       customerName,
+      conferenceRoom,
     });
 
-    console.log(`[CALL START SUCCESS] Call ${callRecord.id} initiated by Agent ${session.name} for Lead "${customerName}" (${contactId})`);
+    console.log(`[CALL START SUCCESS] Call ${callRecord.id} initiated by Agent ${session.name} for Lead "${customerName}" (Room: ${conferenceRoom})`);
+
+    // 3. Conference Bridge: Dispatch outbound carrier call to customer via Twilio REST API
+    const accountSid = (process.env.TWILIO_ACCOUNT_SID || '').trim();
+    const authToken = (process.env.TWILIO_AUTH_TOKEN || '').trim();
+    const fromPhone = (process.env.TWILIO_PHONE_NUMBER || '+17372212163').trim();
+
+    let outboundCallSid: string | null = null;
+
+    if (accountSid && authToken) {
+      try {
+        const client = twilio(accountSid, authToken);
+        const destinationPhone = targetPhone || (lead?.phone && lead.phone !== 'N/A' ? lead.phone : contactId);
+        const formattedDestination = destinationPhone.startsWith('+') ? destinationPhone : `+${destinationPhone.replace(/\D/g, '')}`;
+
+        console.log(`[CONFERENCE BRIDGE] Ringing destination ${formattedDestination} from ${fromPhone} for room ${conferenceRoom}...`);
+
+        const confTwiml = `<?xml version="1.0" encoding="UTF-8"?><Response><Dial><Conference startConferenceOnEnter="true" endConferenceOnExit="true" beep="false">${conferenceRoom}</Conference></Dial></Response>`;
+
+        const outboundCall = await client.calls.create({
+          from: fromPhone,
+          to: formattedDestination,
+          twiml: confTwiml,
+        });
+
+        outboundCallSid = outboundCall.sid;
+        console.log(`[CONFERENCE BRIDGE SUCCESS] PSTN call ${outboundCall.sid} placed to ${formattedDestination}`);
+      } catch (err: any) {
+        console.warn('[CONFERENCE BRIDGE WARNING] Outbound PSTN dispatch notice:', err.message);
+      }
+    }
 
     return NextResponse.json({
       success: true,
       call: callRecord,
+      conferenceRoom,
+      outboundCallSid,
     });
   } catch (error: any) {
     console.error('[CALL START EXCEPTION]:', error);

@@ -144,7 +144,7 @@ export default function CallPanel({
         const startRes = await fetch('/api/calls/start', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ contactId }),
+          body: JSON.stringify({ contactId, targetPhone }),
         });
 
         const startData = await startRes.json();
@@ -159,6 +159,8 @@ export default function CallPanel({
         if (isMounted) {
           setCallId(startData.call.id);
         }
+
+        const conferenceRoom = startData.conferenceRoom;
 
         // 2. Fetch Twilio Token
         const tokenRes = await fetch('/api/twilio/token', { method: 'POST' });
@@ -201,6 +203,9 @@ export default function CallPanel({
         });
 
         const connectParams: Record<string, string> = { contactId };
+        if (conferenceRoom) {
+          connectParams.conferenceRoom = conferenceRoom;
+        }
         if (targetPhone) {
           connectParams.targetPhone = targetPhone;
           connectParams.phone = targetPhone;

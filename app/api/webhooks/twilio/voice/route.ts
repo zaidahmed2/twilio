@@ -10,6 +10,26 @@ export async function POST(req: NextRequest) {
 
     const voiceResponse = new twilio.twiml.VoiceResponse();
 
+    // Check if client is joining a Conference Bridge
+    const conferenceRoom = (formData.get('conferenceRoom') || formData.get('room')) as string;
+    if (conferenceRoom) {
+      console.log(`[TWILIO VOICE] Agent WebRTC joining Conference Room: ${conferenceRoom}`);
+      const dial = voiceResponse.dial();
+      dial.conference(
+        {
+          startConferenceOnEnter: true,
+          endConferenceOnExit: true,
+          beep: 'false',
+          waitUrl: '',
+        },
+        conferenceRoom
+      );
+
+      return new NextResponse(voiceResponse.toString(), {
+        headers: { 'Content-Type': 'text/xml' },
+      });
+    }
+
     if (!contactId) {
       voiceResponse.say('Invalid request. No contact identifier provided.');
       voiceResponse.hangup();
