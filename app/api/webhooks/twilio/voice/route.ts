@@ -48,10 +48,10 @@ export async function POST(req: NextRequest) {
 
     console.log(`[TWILIO VOICE] Connecting WebRTC call for contact ${contactId} to phone ${formattedPhone}`);
 
-    // Determine Caller ID (must be Twilio number or Verified Caller ID)
+    // Determine Caller ID (must be Twilio trial number)
     let callerId = (process.env.TWILIO_PHONE_NUMBER || '').trim();
-    if (!callerId || callerId.includes('451236270')) {
-      callerId = '+61422436270';
+    if (!callerId || callerId.includes('422436270') || callerId.includes('451236270')) {
+      callerId = '+17372212163';
     }
 
     // Dial out through Twilio Voice Infrastructure
