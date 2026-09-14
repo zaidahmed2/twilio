@@ -33,10 +33,41 @@ export default function CallPanel({
   const [selectedOutcome, setSelectedOutcome] = useState<CallOutcome>('Interested');
   const [notes, setNotes] = useState<string>('');
   const [isSavingOutcome, setIsSavingOutcome] = useState<boolean>(false);
+  const [isDirectCalling, setIsDirectCalling] = useState<boolean>(false);
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const deviceRef = useRef<any>(null);
   const activeTwilioCallRef = useRef<any>(null);
+
+  const handleDirectCarrierCall = async () => {
+    setIsDirectCalling(true);
+    setErrorMessage(null);
+    setStatus('ringing');
+    try {
+      const res = await fetch('/api/calls/direct', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          toPhone: targetPhone || contactId || '+61451236270',
+          contactId,
+          customerName,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        setErrorMessage(data.error || 'Direct carrier call failed');
+        setStatus('failed');
+      } else {
+        setCallId(data.callId);
+        setStatus('answered');
+      }
+    } catch (e: any) {
+      setErrorMessage(e.message || 'Failed to place direct call');
+      setStatus('failed');
+    } finally {
+      setIsDirectCalling(false);
+    }
+  };
 
   // Helper to safely close window & end call session
   const handleSafeClose = async () => {
