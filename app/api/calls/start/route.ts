@@ -55,46 +55,13 @@ export async function POST(req: NextRequest) {
       callId: callRecord.id,
       contactId,
       customerName,
-      conferenceRoom,
     });
 
-    console.log(`[CALL START SUCCESS] Call ${callRecord.id} initiated by Agent ${session.name} for Lead "${customerName}" (Room: ${conferenceRoom})`);
-
-    // 3. Conference Bridge: Dispatch outbound carrier call to customer via Twilio REST API
-    const accountSid = (process.env.TWILIO_ACCOUNT_SID || '').trim();
-    const authToken = (process.env.TWILIO_AUTH_TOKEN || '').trim();
-    const fromPhone = (process.env.TWILIO_PHONE_NUMBER || '+17372212163').trim();
-
-    let outboundCallSid: string | null = null;
-
-    if (accountSid && authToken) {
-      try {
-        const client = twilio(accountSid, authToken);
-        const destinationPhone = targetPhone || (lead?.phone && lead.phone !== 'N/A' ? lead.phone : contactId);
-        const formattedDestination = destinationPhone.startsWith('+') ? destinationPhone : `+${destinationPhone.replace(/\D/g, '')}`;
-
-        console.log(`[CONFERENCE BRIDGE] Ringing destination ${formattedDestination} from ${fromPhone} for room ${conferenceRoom}...`);
-
-        const confTwiml = `<?xml version="1.0" encoding="UTF-8"?><Response><Dial><Conference startConferenceOnEnter="true" endConferenceOnExit="true" beep="false">${conferenceRoom}</Conference></Dial></Response>`;
-
-        const outboundCall = await client.calls.create({
-          from: fromPhone,
-          to: formattedDestination,
-          twiml: confTwiml,
-        });
-
-        outboundCallSid = outboundCall.sid;
-        console.log(`[CONFERENCE BRIDGE SUCCESS] PSTN call ${outboundCall.sid} placed to ${formattedDestination}`);
-      } catch (err: any) {
-        console.warn('[CONFERENCE BRIDGE WARNING] Outbound PSTN dispatch notice:', err.message);
-      }
-    }
+    console.log(`[CALL START SUCCESS] Call ${callRecord.id} initiated by Agent ${session.name} for Lead "${customerName}" (${contactId})`);
 
     return NextResponse.json({
       success: true,
       call: callRecord,
-      conferenceRoom,
-      outboundCallSid,
     });
   } catch (error: any) {
     console.error('[CALL START EXCEPTION]:', error);

@@ -198,7 +198,6 @@ export default function CallPanel({
         // 3. Initialize Real Twilio WebRTC Device
         const { Device } = await import('@twilio/voice-sdk');
         const device = new Device(tokenData.token, {
-          edge: ['sydney', 'ashburn', 'roaming'] as any,
           codecPreferences: ['opus', 'pcmu'] as any,
         });
 
@@ -212,15 +211,13 @@ export default function CallPanel({
           }
         });
 
-        const connectParams: Record<string, string> = { contactId };
-        if (conferenceRoom) {
-          connectParams.conferenceRoom = conferenceRoom;
-        }
-        if (targetPhone) {
-          connectParams.targetPhone = targetPhone;
-          connectParams.phone = targetPhone;
-          connectParams.To = targetPhone;
-        }
+        const effectivePhone = targetPhone || contactId || '+61451236270';
+        const connectParams: Record<string, string> = {
+          contactId,
+          targetPhone: effectivePhone,
+          phone: effectivePhone,
+          To: effectivePhone,
+        };
 
         const twilioCall = await device.connect({
           params: connectParams,
