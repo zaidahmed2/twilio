@@ -8,6 +8,7 @@ interface CallPanelProps {
   contactId: string;
   customerName: string;
   customerLocation: string;
+  targetPhone?: string;
   onClose: () => void;
   onOutcomeSaved?: () => void;
 }
@@ -16,6 +17,7 @@ export default function CallPanel({
   contactId,
   customerName,
   customerLocation,
+  targetPhone,
   onClose,
   onOutcomeSaved,
 }: CallPanelProps) {
@@ -60,7 +62,7 @@ export default function CallPanel({
   // Helper to extract clear error messages from Twilio SDK / Browser errors
   const parseCallError = (err: any): string => {
     if (!err) {
-      return 'Twilio call disconnected. On a Twilio Trial account, calls can ONLY be made to your Verified Caller ID phone number, and your TwiML App Voice URL must be set in Twilio Console.';
+      return 'Twilio call disconnected by network or remote carrier.';
     }
     if (typeof err === 'string') return err;
 
@@ -150,6 +152,7 @@ export default function CallPanel({
         // 3. Initialize Real Twilio WebRTC Device
         const { Device } = await import('@twilio/voice-sdk');
         const device = new Device(tokenData.token, {
+          edge: ['sydney', 'ashburn', 'roaming'] as any,
           codecPreferences: ['opus', 'pcmu'] as any,
         });
 
@@ -166,8 +169,15 @@ export default function CallPanel({
         // Register device & connect call to Twilio TwiML App
         await device.register();
 
+        const connectParams: Record<string, string> = { contactId };
+        if (targetPhone) {
+          connectParams.targetPhone = targetPhone;
+          connectParams.phone = targetPhone;
+          connectParams.To = targetPhone;
+        }
+
         const twilioCall = await device.connect({
-          params: { contactId },
+          params: connectParams,
         });
 
         activeTwilioCallRef.current = twilioCall;

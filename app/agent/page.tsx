@@ -279,6 +279,7 @@ export default function AgentDashboard() {
           contactId={activeCallTarget.id}
           customerName={activeCallTarget.name}
           customerLocation={`${activeCallTarget.city}, ${activeCallTarget.state}`}
+          targetPhone={activeCallTarget.phone}
           onClose={() => setActiveCallTarget(null)}
           onOutcomeSaved={fetchData}
         />

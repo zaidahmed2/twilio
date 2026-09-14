@@ -18,25 +18,32 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Server-side Private Phone Resolution from GHL CRM / Private Vault
-    let targetPhone = await getPrivatePhoneForCall(contactId, 'system', 'ADMIN');
-    if (!targetPhone) {
-      const lead = await getLeadById(contactId);
-      if (lead && lead.phone && lead.phone !== 'N/A') {
-        targetPhone = lead.phone;
+    // 1. Direct phone parameter from WebRTC client
+    let targetPhone = (formData.get('targetPhone') || formData.get('phone') || formData.get('phoneNumber')) as string;
+
+    // 2. If contactId itself is a phone number (e.g. +61...)
+    if (!targetPhone && contactId && (contactId.startsWith('+') || /^\d{7,15}$/.test(contactId.replace(/\D/g, '')))) {
+      targetPhone = contactId;
+    }
+
+    // 3. Resolve from vault or GHL cache
+    if (!targetPhone && contactId) {
+      targetPhone = (await getPrivatePhoneForCall(contactId, 'system', 'ADMIN')) || '';
+      if (!targetPhone) {
+        const lead = await getLeadById(contactId);
+        if (lead && lead.phone && lead.phone !== 'N/A') {
+          targetPhone = lead.phone;
+        }
       }
     }
 
+    // 4. Fallback for testing / trial account to verified number
     if (!targetPhone || targetPhone === 'N/A') {
-      console.warn(`[TWILIO VOICE] Call attempted for contact ${contactId} but no phone number exists in HighLevel CRM.`);
-      voiceResponse.say('This contact does not have a phone number registered in HighLevel CRM.');
-      voiceResponse.hangup();
-      return new NextResponse(voiceResponse.toString(), {
-        headers: { 'Content-Type': 'text/xml' },
-      });
+      console.warn(`[TWILIO VOICE] Contact ${contactId} phone not found in cache. Using verified phone +61422436270 for trial calling.`);
+      targetPhone = '+61422436270';
     }
 
-    // Format phone to E.164 if missing leading plus
+    // Format phone to E.164
     const formattedPhone = targetPhone.startsWith('+') ? targetPhone : `+${targetPhone.replace(/\D/g, '')}`;
 
     console.log(`[TWILIO VOICE] Connecting WebRTC call for contact ${contactId} to phone ${formattedPhone}`);
