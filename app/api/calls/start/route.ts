@@ -50,10 +50,10 @@ export async function POST(req: NextRequest) {
     await logAuditEvent(session.id, session.role, 'CALL_STARTED', {
       callId: callRecord.id,
       contactId,
-      customerName: lead.name,
+      customerName,
     });
 
-    console.log(`[CALL START SUCCESS] Call ${callRecord.id} initiated by Agent ${session.name} for Lead "${lead.name}" (${contactId})`);
+    console.log(`[CALL START SUCCESS] Call ${callRecord.id} initiated by Agent ${session.name} for Lead "${customerName}" (${contactId})`);
 
     return NextResponse.json({
       success: true,
