@@ -13,7 +13,29 @@ export default function AgentDashboard() {
   const [recentCalls, setRecentCalls] = useState<CallRecord[]>([]);
   const [activeCallTarget, setActiveCallTarget] = useState<SafeLead | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [manualPhone, setManualPhone] = useState('+61451236270');
   const [statusFilter, setStatusFilter] = useState('ALL');
+
+  const handleDirectCall = (e: React.FormEvent) => {
+    e.preventDefault();
+    const clean = manualPhone.trim();
+    if (!clean) return;
+    const formatted = clean.startsWith('+') ? clean : `+${clean.replace(/\D/g, '')}`;
+    setActiveCallTarget({
+      id: formatted,
+      name: `Direct Call (${formatted})`,
+      city: 'Australia',
+      state: 'Direct',
+      status: 'New',
+      assignedAgentId: user?.id || null,
+      assignedAgentName: user?.name || null,
+      companyId: 'company_default',
+      lastContact: null,
+      createdAt: new Date().toISOString(),
+      tags: ['Direct Dial'],
+      phone: formatted,
+    });
+  };
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [isLoading, setIsLoading] = useState(true);
@@ -75,6 +97,46 @@ export default function AgentDashboard() {
             <div className="inline-flex items-center gap-2 bg-emerald-50 text-emerald-700 border border-emerald-200 px-3.5 py-2 rounded-xl text-xs font-semibold">
               <ShieldCheck className="w-4 h-4 text-emerald-600" />
               Phone Privacy Guard Active
+            </div>
+          </div>
+
+          {/* Direct Manual Number Dialer */}
+          <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-5 rounded-2xl border border-indigo-900/50 text-white shadow-lg">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center">
+                    <PhoneCall className="w-4 h-4" />
+                  </div>
+                  <h2 className="text-base font-extrabold text-white">Direct Manual Dial (Quick Testing)</h2>
+                  <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                    LIVE TRIAL READY
+                  </span>
+                </div>
+                <p className="text-xs text-slate-300">
+                  Type any phone number directly (e.g. <span className="font-mono text-emerald-400 font-bold">+61451236270</span>) to test instant browser voice calling.
+                </p>
+              </div>
+
+              <form onSubmit={handleDirectCall} className="flex flex-wrap items-center gap-2.5">
+                <div className="relative">
+                  <Phone className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                  <input
+                    type="text"
+                    value={manualPhone}
+                    onChange={(e) => setManualPhone(e.target.value)}
+                    placeholder="+61451236270"
+                    className="pl-9 pr-4 py-2.5 bg-slate-800/90 border border-slate-700 text-white rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500 w-60 shadow-inner"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-5 py-2.5 rounded-xl text-sm shadow-md transition active:scale-95"
+                >
+                  <PhoneCall className="w-4 h-4" />
+                  Call Now
+                </button>
+              </form>
             </div>
           </div>
 

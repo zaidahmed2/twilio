@@ -25,18 +25,23 @@ export async function POST(req: NextRequest) {
 
     const { contactId } = parsed.data;
 
-    // 1. Verify lead existence
+    // 1. Verify lead existence or support direct manual dialing
     const lead = await getLeadById(contactId, session.companyId);
-    if (!lead) {
+    const isDirectNumber = contactId.startsWith('+') || /^\d{6,15}$/.test(contactId.replace(/\D/g, ''));
+    
+    if (!lead && !isDirectNumber) {
       console.error(`[CALL START ERROR] Lead ID ${contactId} not found in GHL CRM / local dataset.`);
       return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
     }
 
+    const customerName = lead ? lead.name : `Direct Call (${contactId})`;
+    const customerLocation = lead ? `${lead.city}, ${lead.state}` : 'Direct Dial';
+
     // 2. Create call record
     const callRecord = await createCallRecord({
       contactId,
-      customerName: lead.name,
-      customerLocation: `${lead.city}, ${lead.state}`,
+      customerName,
+      customerLocation,
       agentId: session.id,
       agentName: session.name,
       companyId: session.companyId,
